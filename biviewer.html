@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BI Viewer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f4f4f4;
+    --surface: #ffffff;
+    --border: #e0e0e0;
+    --text: #1a1a1a;
+    --muted: #888;
+    --accent: #2563eb;
+    --header-h: 52px;
+    --footer-h: 32px;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    height: var(--header-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 16px;
+    transition: transform 0.4s ease, opacity 0.4s;
+  }
+
+  .logo {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    letter-spacing: -0.02em;
+  }
+
+  .sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+
+  /* Link input area */
+  .link-area {
+    flex: 1;
+    display: flex; align-items: center; gap: 8px;
+    min-width: 0;
+  }
+
+  .link-area label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .link-area input {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.8rem;
+    font-family: inherit;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .link-area input:focus { border-color: var(--accent); }
+  .link-area input::placeholder { color: #bbb; }
+
+  .btn-load {
+    font-size: 0.78rem;
+    font-family: inherit;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 5px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-load:hover { background: #1d4ed8; }
+
+  /* Action buttons */
+  .actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+  .btn {
+    font-size: 0.75rem;
+    font-family: inherit;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 5px;
+    transition: background 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .btn:hover { background: var(--bg); border-color: #ccc; }
+  .btn svg { flex-shrink: 0; }
+
+  .btn-pres {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+    font-weight: 600;
+  }
+  .btn-pres:hover { background: #333; border-color: #333; }
+
+  /* ── MAIN ── */
+  main {
+    position: fixed;
+    top: var(--header-h);
+    left: 0; right: 0;
+    bottom: var(--footer-h);
+    background: #e8e8e8;
+    display: flex; align-items: center; justify-content: center;
+    transition: top 0.4s ease, bottom 0.4s ease;
+    overflow: hidden;
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    color: var(--muted);
+  }
+  .empty-state svg { opacity: 0.3; }
+  .empty-state p { font-size: 0.85rem; }
+  .empty-state span { font-size: 0.75rem; opacity: 0.7; }
+
+  /* ── SCALE WRAPPER ── */
+  .scale-container {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+
+  .iframe-scaler {
+    width: 1140px;
+    height: 541.25px;
+    transform-origin: center center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+    background: #fff;
+    position: relative;
+  }
+
+  iframe {
+    width: 100%; height: 100%;
+    border: none; display: block;
+  }
+
+  /* ── LOADING ── */
+  .loading {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: #fff;
+    z-index: 10; gap: 14px;
+    transition: opacity 0.4s;
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid #e0e0e0;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.85s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading p { font-size: 0.78rem; color: var(--muted); }
+
+  /* ── FOOTER ── */
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    height: var(--footer-h);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.4s ease;
+  }
+  footer p { font-size: 0.7rem; color: var(--muted); }
+  footer p b { color: var(--text); font-weight: 600; }
+
+  /* ── DIAPORAMA ── */
+  body.diaporama header { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+  body.diaporama footer { transform: translateY(100%); }
+  body.diaporama main { top: 0; bottom: 0; }
+
+  .diaporama-bar {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(70px);
+    z-index: 200;
+    background: rgba(26,26,26,0.92);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 40px;
+    padding: 8px 20px;
+    display: flex; align-items: center; gap: 10px;
+    opacity: 0;
+    transition: transform 0.35s ease, opacity 0.35s;
+    pointer-events: none;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  body.diaporama .diaporama-bar { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: all; }
+  body.diaporama.hide-bar .diaporama-bar { transform: translateX(-50%) translateY(70px); opacity: 0; pointer-events: none; }
+
+  .dbar-label {
+    font-size: 0.7rem; font-weight: 600; color: rgba(255,255,255,0.45);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding-right: 10px; border-right: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .dbar-btn {
+    background: transparent; border: none;
+    color: rgba(255,255,255,0.75); cursor: pointer;
+    padding: 5px 9px; border-radius: 5px;
+    display: flex; align-items: center; gap: 5px;
+    font-family: inherit; font-size: 0.75rem; font-weight: 500;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .dbar-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .dbar-sep { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
+
+  /* Hint */
+  .hint {
+    position: fixed; top: 16px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 300;
+    background: rgba(26,26,26,0.88);
+    backdrop-filter: blur(8px);
+    border-radius: 6px; padding: 8px 16px;
+    font-size: 0.74rem; color: rgba(255,255,255,0.55);
+    display: flex; align-items: center; gap: 8px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s; white-space: nowrap;
+  }
+  .hint.show { opacity: 1; }
+  .hint kbd {
+    background: rgba(255,255,255,0.12); border-radius: 3px;
+    padding: 1px 5px; font-size: 0.68rem;
+    color: rgba(255,255,255,0.8); font-family: monospace;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">BI Viewer</div>
+  <div class="sep"></div>
+
+  <div class="link-area">
+    <label for="pbi-url">Lien Power BI</label>
+    <input
+      id="pbi-url"
+      type="text"
+      placeholder="Coller ici le lien Power BI (reportEmbed ou app.powerbi.com/...)"
+      value=""
+    />
+    <button class="btn-load" onclick="loadReport()">Charger</button>
+  </div>
+
+  <div class="sep"></div>
+  <div class="actions">
+    <button class="btn" onclick="reloadReport()" title="Actualiser">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+      </svg>
+      Actualiser
+    </button>
+    <button class="btn btn-pres" onclick="startDiaporama()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+      </svg>
+      Présenter
+    </button>
+  </div>
+</header>
+
+<main id="main">
+  <div class="empty-state" id="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5">
+      <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+    </svg>
+    <p>Entrez un lien Power BI et cliquez sur <b>Charger</b></p>
+    <span>Le rapport s'affichera ici, ajusté automatiquement à la fenêtre</span>
+  </div>
+
+  <div class="scale-container" id="scale-container" style="display:none;">
+    <div class="iframe-scaler" id="iframe-scaler">
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Chargement du rapport…</p>
+      </div>
+      <iframe
+        id="pbi-frame"
+        title="Power BI Report"
+        allowfullscreen
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation"
+        onload="hideLoading()"
+      ></iframe>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>A tool made by <b>Ayat</b></p>
+</footer>
+
+<!-- Barre diaporama -->
+<div class="diaporama-bar" id="diaporama-bar">
+  <span class="dbar-label">Présentation</span>
+  <button class="dbar-btn" onclick="toggleFullscreen()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+      <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+    </svg>
+    Plein écran
+  </button>
+  <div class="dbar-sep"></div>
+  <button class="dbar-btn" onclick="reloadReport()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+    </svg>
+    Actualiser
+  </button>
+  <div class="dbar-sep"></div>
+  <button class="dbar-btn" onclick="stopDiaporama()" style="color:#f87171;">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+    Quitter
+  </button>
+</div>
+
+<div class="hint" id="hint">
+  <span>Bougez la souris pour les contrôles</span> · <kbd>Échap</kbd> pour quitter
+</div>
+
+<script>
+  const PBI_W = 1140, PBI_H = 541.25;
+  let isDiaporama = false, hideBarTimer, hintTimer;
+
+  // ── AUTO SCALE ──
+  function applyFit() {
+    const container = document.getElementById('scale-container');
+    if (!container || container.style.display === 'none') return;
+    const cw = container.clientWidth - 32;
+    const ch = container.clientHeight - 32;
+    const scale = Math.min(cw / PBI_W, ch / PBI_H, 1.5);
+    document.getElementById('iframe-scaler').style.transform = `scale(${scale})`;
+  }
+
+  window.addEventListener('resize', applyFit);
+
+  // ── LOAD REPORT ──
+  function loadReport() {
+    const raw = document.getElementById('pbi-url').value.trim();
+    if (!raw) return;
+
+    // Accept both embed URLs and regular app.powerbi.com URLs
+    let url = raw;
+
+    // If it's a regular share URL, try to convert to embed
+    if (raw.includes('app.powerbi.com/groups') || raw.includes('app.powerbi.com/reports')) {
+      const reportMatch = raw.match(/reports\/([a-f0-9\-]{36})/i);
+      const groupMatch = raw.match(/groups\/([a-f0-9\-]{36})/i);
+      if (reportMatch) {
+        const rid = reportMatch[1];
+        const gid = groupMatch ? groupMatch[1] : '';
+        url = `https://app.powerbi.com/reportEmbed?reportId=${rid}${gid ? '&groupId=' + gid : ''}&autoAuth=true&actionBarEnabled=true`;
+      }
+    }
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('scale-container').style.display = 'flex';
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('loading').style.opacity = '1';
+    document.getElementById('pbi-frame').src = url;
+
+    setTimeout(() => applyFit(), 50);
+  }
+
+  // Load on Enter key
+  document.getElementById('pbi-url').addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadReport();
+  });
+
+  // Auto-load the default URL on page load
+  window.addEventListener('load', () => {
+    const input = document.getElementById('pbi-url');
+    if (input.value.trim()) loadReport();
+  });
+
+  // ── LOADING ──
+  function hideLoading() {
+    const el = document.getElementById('loading');
+    el.style.opacity = '0';
+    setTimeout(() => el.style.display = 'none', 400);
+  }
+  setTimeout(hideLoading, 14000);
+
+  function reloadReport() {
+    const frame = document.getElementById('pbi-frame');
+    if (!frame.src) return;
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('loading').style.opacity = '1';
+    frame.src = frame.src;
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  // ── DIAPORAMA ──
+  function startDiaporama() {
+    const frame = document.getElementById('pbi-frame');
+    if (!frame.src) return;
+    isDiaporama = true;
+    document.body.classList.add('diaporama');
+    document.documentElement.requestFullscreen().catch(() => {});
+    setTimeout(() => applyFit(), 450);
+    const hint = document.getElementById('hint');
+    hint.classList.add('show');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => hint.classList.remove('show'), 3500);
+    resetHideBar();
+  }
+
+  function stopDiaporama() {
+    isDiaporama = false;
+    document.body.classList.remove('diaporama', 'hide-bar');
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    clearTimeout(hideBarTimer); clearTimeout(hintTimer);
+    document.getElementById('hint').classList.remove('show');
+    setTimeout(() => applyFit(), 450);
+  }
+
+  function resetHideBar() {
+    document.body.classList.remove('hide-bar');
+    clearTimeout(hideBarTimer);
+    hideBarTimer = setTimeout(() => { if (isDiaporama) document.body.classList.add('hide-bar'); }, 3000);
+  }
+
+  document.addEventListener('mousemove', () => { if (isDiaporama) resetHideBar(); });
+  document.addEventListener('click', () => { if (isDiaporama) resetHideBar(); });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && isDiaporama) stopDiaporama(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isDiaporama) stopDiaporama();
+    if (e.key === 'F5') { e.preventDefault(); if (!isDiaporama) startDiaporama(); }
+  });
+</script>
+</body>
+</html>
